@@ -9,7 +9,8 @@ namespace EasyNetQ
 
         private readonly JsonSerializerSettings serializerSettings = new JsonSerializerSettings
         {
-            TypeNameHandling = TypeNameHandling.Auto
+            TypeNameHandling = TypeNameHandling.Auto,
+            ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor
         };
 
         public JsonSerializer(ITypeNameSerializer typeNameSerializer)
