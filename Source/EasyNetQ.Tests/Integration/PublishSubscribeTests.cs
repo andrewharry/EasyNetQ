@@ -1,10 +1,10 @@
 // ReSharper disable InconsistentNaming
 
 using System;
-using System.Text;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using EasyNetQ.Loggers;
-using EasyNetQ.Topology;
 using NUnit.Framework;
 
 namespace EasyNetQ.Tests.Integration
@@ -238,24 +238,46 @@ namespace EasyNetQ.Tests.Integration
             subscribeBus2.Dispose();
         }
 
-        public static void SetImmediateToTrue()
+        // The test sends multiple messages with different priorities and expects that messages with higher priority will be received first.
+        [Test, Explicit("Needs a Rabbit instance on localhost to work")]
+        public void Should_respect_message_priority()
         {
-            var bus = RabbitHutch.CreateBus("host=localhost");
+            var testLocalBus = RabbitHutch.CreateBus("host=localhost;prefetchcount=1");
+            const int eachPriorityNumber = 20;
+            const int totalNumber = eachPriorityNumber * 3;
+            var expected = new List<string>();
+            expected.AddRange(Enumerable.Repeat("2", eachPriorityNumber));
+            expected.AddRange(Enumerable.Repeat("1", eachPriorityNumber));
+            expected.AddRange(Enumerable.Repeat("0", eachPriorityNumber));
 
-            var properties = new MessageProperties();
-            var body = Encoding.UTF8.GetBytes("Test");
-
-            var message =
-            new Message<MyMessage>(new MyMessage()
+            using (testLocalBus.Subscribe<MyMessage>("messagePriorityTest", message => { }, c => c.WithMaxPriority(10)))
             {
-                Text = "Hello"
-            });
+                // Create the queue at the very first run
+            }
 
-            bus.Advanced.Publish(Exchange.GetDefault(), "test_queue", true, true, message);
+            for (int i = 0; i < eachPriorityNumber; i++)
+            {
+                testLocalBus.Publish(new MyMessage { Text = "0" }, x => x.WithPriority(0));
+                testLocalBus.Publish(new MyMessage { Text = "1" }, x => x.WithPriority(1));
+                testLocalBus.Publish(new MyMessage { Text = "2" }, x => x.WithPriority(2));
+            }
 
-            //bus.Advanced.Publish(Exchange.GetDefault(), "test_queue", true, true, properties, body);
+            var autoResetEvent = new AutoResetEvent(false);
+            var received = new List<string>();
 
-            bus.Dispose();
+            testLocalBus.Subscribe<MyMessage>("messagePriorityTest", message =>
+            {
+                received.Add(message.Text);
+                if (received.Count == totalNumber)
+                    autoResetEvent.Set();
+            }, c => c.WithMaxPriority(10));
+
+            var done = autoResetEvent.WaitOne(1000);
+
+            Assert.IsTrue(done);
+            CollectionAssert.AreEqual(received, expected);
+
+            testLocalBus.Dispose();
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿// ReSharper disable InconsistentNaming
 
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using EasyNetQ.Events;
@@ -26,9 +27,9 @@ namespace EasyNetQ.Tests
                 x.Register<ICorrelationIdGenerationStrategy>(_ => new StaticCorrelationIdGenerationStrategy(correlationId)));
 
             mockBuilder.NextModel.Stub(x =>
-                x.BasicPublish(null, null, false, false, null, null))
+                x.BasicPublish(null, null, false, null, null))
                     .IgnoreArguments()
-                    .Callback<string, string, bool, bool, IBasicProperties, byte[]>((e, r, m, i, p, b) =>
+                    .Callback<string, string, bool, IBasicProperties, byte[]>((e, r, m, p, b) =>
                     {
                         body = b;
                         properties = p;
@@ -62,7 +63,6 @@ namespace EasyNetQ.Tests
                     Arg<string>.Is.Equal("EasyNetQ.Tests.MyMessage:EasyNetQ.Tests"), 
                     Arg<string>.Is.Equal(""), 
                     Arg<bool>.Is.Equal(false),
-                    Arg<bool>.Is.Equal(false),
                     Arg<IBasicProperties>.Is.Equal(mockBuilder.BasicProperties), 
                     Arg<byte[]>.Is.Anything));
 
@@ -92,7 +92,7 @@ namespace EasyNetQ.Tests
         public void Should_declare_exchange()
         {
             mockBuilder.Channels[0].AssertWasCalled(x => x.ExchangeDeclare(
-                "EasyNetQ.Tests.MyMessage:EasyNetQ.Tests", "topic", true, false, null));
+                "EasyNetQ.Tests.MyMessage:EasyNetQ.Tests", "topic", true, false, new Dictionary<string, object>()));
         }
 
         [Test]
@@ -135,7 +135,6 @@ namespace EasyNetQ.Tests
                 x.BasicPublish(
                     Arg<string>.Is.Equal("EasyNetQ.Tests.MyMessage:EasyNetQ.Tests"),
                     Arg<string>.Is.Equal("X.A"),
-                    Arg<bool>.Is.Equal(false),
                     Arg<bool>.Is.Equal(false),
                     Arg<IBasicProperties>.Is.Equal(mockBuilder.BasicProperties),
                     Arg<byte[]>.Is.Anything));

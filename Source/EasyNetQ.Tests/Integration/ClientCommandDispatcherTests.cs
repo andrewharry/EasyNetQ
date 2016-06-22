@@ -30,7 +30,7 @@ namespace EasyNetQ.Tests.Integration
             var connectionFactory = new ConnectionFactoryWrapper(configuration, hostSelectionStrategy);
             connection = new PersistentConnection(connectionFactory, logger, eventBus);
             var persistentChannelFactory = new PersistentChannelFactory(logger, configuration, eventBus);
-            dispatcher = new ClientCommandDispatcher(connection, persistentChannelFactory);
+            dispatcher = new ClientCommandDispatcher(configuration, connection, persistentChannelFactory);
             connection.Initialize();
         }
 
@@ -89,7 +89,7 @@ namespace EasyNetQ.Tests.Integration
                         {
                             dispatcher.InvokeAsync(
                                 x =>
-                                x.BasicPublish("", "MyQueue", false, false, x.CreateBasicProperties(), body)
+                                x.BasicPublish("", "MyQueue", false, x.CreateBasicProperties(), body)
                                 ).Wait();
                         }
                     }, TaskCreationOptions.LongRunning));

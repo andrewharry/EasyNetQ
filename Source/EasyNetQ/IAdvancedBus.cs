@@ -72,6 +72,29 @@ namespace EasyNetQ
         /// <returns>A disposable to cancel the consumer</returns>
         IDisposable Consume(IQueue queue, Action<IHandlerRegistration> addHandlers, Action<IConsumerConfiguration> configure);
 
+        /// <summary>
+        /// Consume raw bytes from the queue.
+        /// </summary>
+        /// <param name="queue">The queue to subscribe to</param>
+        /// <param name="onMessage">
+        /// The message handler. Takes the message body, message properties and some information about the 
+        /// receive context.
+        /// </param>
+        /// <returns>A disposable to cancel the consumer</returns>
+        IDisposable Consume(IQueue queue, Action<byte[], MessageProperties, MessageReceivedInfo> onMessage);
+
+        /// <summary>
+        /// Consume raw bytes from the queue.
+        /// </summary>
+        /// <param name="queue">The queue to subscribe to</param>
+        /// <param name="onMessage">
+        /// The message handler. Takes the message body, message properties and some information about the 
+        /// receive context.
+        /// </param>
+        /// <param name="configure">
+        /// Fluent configuration e.g. x => x.WithPriority(10)</param>
+        /// <returns>A disposable to cancel the consumer</returns>
+        IDisposable Consume(IQueue queue, Action<byte[], MessageProperties, MessageReceivedInfo> onMessage, Action<IConsumerConfiguration> configure);
 
         /// <summary>
         /// Consume raw bytes from the queue.
@@ -96,7 +119,7 @@ namespace EasyNetQ
         /// Fluent configuration e.g. x => x.WithPriority(10)</param>
         /// <returns>A disposable to cancel the consumer</returns>
         IDisposable Consume(IQueue queue, Func<byte[], MessageProperties, MessageReceivedInfo, Task> onMessage, Action<IConsumerConfiguration> configure);
-
+        
         /// <summary>
         /// Publish a message as a byte array
         /// </summary>
@@ -109,18 +132,12 @@ namespace EasyNetQ
         /// If this flag is true, the server will return an unroutable message with a Return method. 
         /// If this flag is false, the server silently drops the message.
         /// </param>
-        /// <param name="immediate">
-        /// This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. 
-        /// If this flag is true, the server will return an undeliverable message with a Return method. 
-        /// If this flag is false, the server will queue the message, but with no guarantee that it will ever be consumed.
-        /// </param>
         /// <param name="messageProperties">The message properties</param>
         /// <param name="body">The message body</param>
         void Publish(
             IExchange exchange,
             string routingKey,
             bool mandatory,
-            bool immediate,
             MessageProperties messageProperties,
             byte[] body);
 
@@ -137,17 +154,11 @@ namespace EasyNetQ
         /// If this flag is true, the server will return an unroutable message with a Return method. 
         /// If this flag is false, the server silently drops the message.
         /// </param>
-        /// <param name="immediate">
-        /// This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. 
-        /// If this flag is true, the server will return an undeliverable message with a Return method. 
-        /// If this flag is false, the server will queue the message, but with no guarantee that it will ever be consumed.
-        /// </param>
         /// <param name="message">The message to publish</param>
         void Publish<T>(
             IExchange exchange, 
             string routingKey,
             bool mandatory,
-            bool immediate,
             IMessage<T> message) where T : class;
 
         /// <summary>
@@ -165,17 +176,11 @@ namespace EasyNetQ
         /// If this flag is true, the server will return an unroutable message with a Return method. 
         /// If this flag is false, the server silently drops the message.
         /// </param>
-        /// <param name="immediate">
-        /// This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. 
-        /// If this flag is true, the server will return an undeliverable message with a Return method. 
-        /// If this flag is false, the server will queue the message, but with no guarantee that it will ever be consumed.
-        /// </param>
         /// <param name="message">The message to publish</param>
         Task PublishAsync(
             IExchange exchange,
             string routingKey,
             bool mandatory,
-            bool immediate,
             IMessage message);
 
         /// <summary>
@@ -193,17 +198,11 @@ namespace EasyNetQ
         /// If this flag is true, the server will return an unroutable message with a Return method. 
         /// If this flag is false, the server silently drops the message.
         /// </param>
-        /// <param name="immediate">
-        /// This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. 
-        /// If this flag is true, the server will return an undeliverable message with a Return method. 
-        /// If this flag is false, the server will queue the message, but with no guarantee that it will ever be consumed.
-        /// </param>
         /// <param name="message">The message to publish</param>
         Task PublishAsync<T>(
             IExchange exchange,
             string routingKey,
             bool mandatory,
-            bool immediate,
             IMessage<T> message) where T : class;
 
         /// <summary>
@@ -220,18 +219,12 @@ namespace EasyNetQ
         /// If this flag is true, the server will return an unroutable message with a Return method. 
         /// If this flag is false, the server silently drops the message.
         /// </param>
-        /// <param name="immediate">
-        /// This flag tells the server how to react if the message cannot be routed to a queue consumer immediately. 
-        /// If this flag is true, the server will return an undeliverable message with a Return method. 
-        /// If this flag is false, the server will queue the message, but with no guarantee that it will ever be consumed.
-        /// </param>
         /// <param name="messageProperties">The message properties</param>
         /// <param name="body">The message body</param>
         Task PublishAsync(
             IExchange exchange,
             string routingKey,
             bool mandatory,
-            bool immediate,
             MessageProperties messageProperties,
             byte[] body);
 

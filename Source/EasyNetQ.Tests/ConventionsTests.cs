@@ -1,6 +1,7 @@
 // ReSharper disable InconsistentNaming
 
 using System;
+using System.Collections.Generic;
 using System.Text;
 using EasyNetQ.Consumer;
 using EasyNetQ.Tests.Mocking;
@@ -164,7 +165,7 @@ namespace EasyNetQ.Tests
 		public void Should_use_exchange_name_from_conventions_to_create_the_exchange()
 		{
             mockBuilder.Channels[0].AssertWasCalled(x => 
-                x.ExchangeDeclare("CustomExchangeNamingConvention", "topic", true, false, null));
+                x.ExchangeDeclare("CustomExchangeNamingConvention", "topic", true, false, new Dictionary<string, object>()));
 		}
 
 		[Test]
@@ -174,7 +175,6 @@ namespace EasyNetQ.Tests
                 x.BasicPublish(
                     Arg<string>.Is.Equal("CustomExchangeNamingConvention"), 
                     Arg<string>.Is.Anything, 
-                    Arg<bool>.Is.Equal(false),
                     Arg<bool>.Is.Equal(false),
                     Arg<IBasicProperties>.Is.Anything,
                     Arg<byte[]>.Is.Anything));
@@ -187,7 +187,6 @@ namespace EasyNetQ.Tests
                 x.BasicPublish(
                     Arg<string>.Is.Anything,
                     Arg<string>.Is.Equal("CustomTopicNamingConvention"),
-                    Arg<bool>.Is.Equal(false),
                     Arg<bool>.Is.Equal(false),
                     Arg<IBasicProperties>.Is.Anything,
                     Arg<byte[]>.Is.Anything));
@@ -227,7 +226,7 @@ namespace EasyNetQ.Tests
         public void Should_declare_correct_exchange()
         {
             mockBuilder.Channels[0].AssertWasCalled(x =>
-                x.ExchangeDeclare("CustomRpcExchangeName", "direct", true, false, null));
+                x.ExchangeDeclare("CustomRpcExchangeName", "direct", true, false, new Dictionary<string, object>()));
         }
 
     }
@@ -257,7 +256,8 @@ namespace EasyNetQ.Tests
                 new JsonSerializer(new TypeNameSerializer()), 
                 MockRepository.GenerateStub<IEasyNetQLogger>(), 
                 customConventions,
-                new TypeNameSerializer());
+                new TypeNameSerializer(),
+                new DefaultErrorMessageSerializer());
 
             const string originalMessage = "";
             var originalMessageBody = Encoding.UTF8.GetBytes(originalMessage);
