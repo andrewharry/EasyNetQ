@@ -83,7 +83,7 @@ namespace EasyNetQ.Scheduling
             var futureExchangeName = exchangeName + "_" + delayString;
             var futureQueueName = conventions.QueueNamingConvention(typeof (T), delayString);
             var futureExchange = await advancedBus.ExchangeDeclareAsync(futureExchangeName, ExchangeType.Topic).ConfigureAwait(false);
-            var futureQueue = await advancedBus.QueueDeclareAsync(futureQueueName, perQueueMessageTtl: (int) delay.TotalMilliseconds, deadLetterExchange: exchangeName, deadLetterRoutingKey: topic).ConfigureAwait(false);
+            var futureQueue = await advancedBus.QueueDeclareAsync(futureQueueName, messageTtl: (int) delay.TotalMilliseconds, deadLetterExchange: exchangeName, deadLetterRoutingKey: topic).ConfigureAwait(false);
             await advancedBus.BindAsync(futureExchange, futureQueue, topic).ConfigureAwait(false);
             var easyNetQMessage = new Message<T>(message)
             {
@@ -106,7 +106,7 @@ namespace EasyNetQ.Scheduling
             var futureExchangeName = exchangeName + "_" + delayString;
             var futureQueueName = conventions.QueueNamingConvention(typeof (T), delayString);
             var futureExchange = advancedBus.ExchangeDeclare(futureExchangeName, ExchangeType.Topic);
-            var futureQueue = advancedBus.QueueDeclare(futureQueueName, perQueueMessageTtl: (int) delay.TotalMilliseconds, deadLetterExchange: exchangeName, deadLetterRoutingKey: topic);
+            var futureQueue = advancedBus.QueueDeclare(futureQueueName, messageTtl: (int) delay.TotalMilliseconds, deadLetterExchange: exchangeName, deadLetterRoutingKey: topic);
             advancedBus.Bind(futureExchange, futureQueue, topic);
             var easyNetQMessage = new Message<T>(message)
             {

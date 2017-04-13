@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using EasyNetQ.Events;
+using EasyNetQ.FluentConfiguration;
 using EasyNetQ.Topology;
 
 namespace EasyNetQ.Producer
@@ -23,6 +25,7 @@ namespace EasyNetQ.Producer
 
         private readonly object responseQueuesAddLock = new object();
         private readonly ConcurrentDictionary<RpcKey, string> responseQueues = new ConcurrentDictionary<RpcKey, string>();
+        private readonly ConcurrentDictionary<string, string> endpointQueues = new ConcurrentDictionary<string, string>();
         private readonly ConcurrentDictionary<string, ResponseAction> responseActions = new ConcurrentDictionary<string, ResponseAction>();
 
         protected readonly TimeSpan disablePeriodicSignaling = TimeSpan.FromMilliseconds(-1);
@@ -65,12 +68,47 @@ namespace EasyNetQ.Producer
             var copyOfResponseActions = responseActions.Values;
             responseActions.Clear();
             responseQueues.Clear();
+            endpointQueues.Clear();
 
             // retry in-flight requests.
             foreach (var responseAction in copyOfResponseActions)
             {
                 responseAction.OnFailure();
             }
+        }
+
+        public virtual Task<TResponse> Request<TResponse>(string endpoint, object request, TimeSpan timeout)
+            where TResponse : class {
+            return Request<TResponse>(endpoint, request, timeout, string.Empty);
+        }
+
+        public virtual Task<TResponse> Request<TResponse>(string endpoint, object request, TimeSpan timeout, string topic)
+            where TResponse : class
+        {
+            Preconditions.CheckNotNull(endpoint, "endpoint");
+            Preconditions.CheckShortString(endpoint, "endpoint");
+            Preconditions.CheckNotNull(request, "message");
+
+            var correlationId = Guid.NewGuid();
+
+            var tcs = new TaskCompletionSource<TResponse>();
+            var timer = new Timer(state => {
+                ((Timer)state).Dispose();
+                tcs.TrySetException(new TimeoutException(
+                    string.Format("Request timed out. CorrelationId: {0}", correlationId.ToString())));
+            });
+
+            timer.Change(timeout, disablePeriodicSignaling);
+            RegisterErrorHandling(correlationId, timer, tcs);
+
+            var routeKey = endpoint;
+            if (!string.IsNullOrWhiteSpace(topic))
+                routeKey = string.Concat(endpoint, ".", topic);
+
+            var queue = SubscribeToResponse<TResponse>(endpoint);
+            RequestPublish(request, routeKey, queue, correlationId);
+
+            return tcs.Task;
         }
 
         public virtual Task<TResponse> Request<TRequest, TResponse>(TRequest request)
@@ -139,6 +177,34 @@ namespace EasyNetQ.Producer
                     tcs.TrySetException(new EasyNetQException("Connection lost while request was in-flight. CorrelationId: {0}", correlationId.ToString()));
                 }
             });
+        }
+
+        protected virtual string SubscribeToResponse<TResponse>(string endpoint) where TResponse : class
+        {
+            string queueName;
+            if (endpointQueues.TryGetValue(endpoint, out queueName))
+                return queueName;
+            lock (responseQueuesAddLock)
+            {
+                if (endpointQueues.TryGetValue(endpoint, out queueName))
+                    return queueName;
+                var queue = advancedBus.QueueDeclare(
+                            conventions.RpcReturnQueueNamingConvention(),
+                            passive: false,
+                            durable: false,
+                            exclusive: true,
+                            autoDelete: true);
+
+                advancedBus.Consume<TResponse>(queue, (message, messageReceivedInfo) => Task.Factory.StartNew(() => {
+                    ResponseAction responseAction;
+                    if (responseActions.TryRemove(message.Properties.CorrelationId, out responseAction))
+                    {
+                        responseAction.OnSuccess(message);
+                    }
+                }));
+                endpointQueues.TryAdd(endpoint, queue.Name);
+                return queue.Name;
+            }
         }
 
         protected virtual string SubscribeToResponse<TRequest, TResponse>()
@@ -215,6 +281,71 @@ namespace EasyNetQ.Producer
             where TResponse : class
         {
             return Respond(responder, c => { });
+        }
+
+        public virtual IDisposable Respond<TRequest, TResponse>(string endpoint, Func<TRequest, Task<TResponse>> responder)
+                    where TRequest : class
+                    where TResponse : class
+        {
+            return Respond(endpoint, responder, c => { });
+        }
+
+        public IDisposable Respond<TRequest, TResponse>(string endpoint, Func<TRequest, Task<TResponse>> responder, Action<IResponderConfiguration> configure = null)
+            where TRequest : class
+            where TResponse : class
+        {
+            var requestType = typeof(TRequest);
+
+            Preconditions.CheckNotNull(responder, "responder");
+            Preconditions.CheckShortString(typeNameSerializer.Serialize(typeof(TResponse)), "TResponse");
+
+            if (configure == null)
+                configure = c => { };
+
+            var configuration = new ResponderConfiguration(connectionConfiguration.PrefetchCount);
+            configure(configuration);
+
+            var exchange = advancedBus.ExchangeDeclare(conventions.RpcRequestExchangeNamingConvention(requestType), ExchangeType.Direct);
+            var queue = advancedBus.QueueDeclare(endpoint);
+            var routingKey = endpoint;
+
+            advancedBus.Bind(exchange, queue, routingKey);
+
+            return advancedBus.Consume<TRequest>(queue, (requestMessage, messageRecievedInfo) => ExecuteResponder(responder, requestMessage),
+                c => c.WithPrefetchCount(configuration.PrefetchCount));
+        }
+
+        public IDisposable Respond<TRequest, TResponse>(string endpoint, Func<TRequest, Task<TResponse>> responder, string subscriptionId, Action<ISubscriptionConfiguration> configure)
+            where TRequest : class
+            where TResponse : class
+        {
+            var requestType = typeof(TRequest);
+
+            if (string.IsNullOrWhiteSpace(subscriptionId))
+                return Respond(endpoint, responder, c => { });
+
+            Preconditions.CheckNotNull(responder, "responder");
+            Preconditions.CheckNotNull(endpoint, "endpoint");
+
+            var queueName = string.Concat(endpoint, "_", subscriptionId);
+            Preconditions.CheckNotNull(queueName, "queueName");
+            Preconditions.CheckShortString(queueName, "queueName");
+
+            if (configure == null)
+                configure = c => { };
+
+            var configuration = new SubscriptionConfiguration(connectionConfiguration.PrefetchCount);
+            configure(configuration);
+
+            var exchange = advancedBus.ExchangeDeclare(conventions.RpcRequestExchangeNamingConvention(requestType), ExchangeType.Direct);
+            var queue = advancedBus.QueueDeclare(queueName, autoDelete: configuration.AutoDelete, expires: configuration.Expires, messageTtl: configuration.messageTtl);
+            foreach (var topic in configuration.Topics.DefaultIfEmpty("#"))
+            {
+                advancedBus.Bind(exchange, queue, string.Concat(endpoint, ".", topic));
+            }
+
+            return advancedBus.Consume<TRequest>(queue, (requestMessage, messageRecievedInfo) => ExecuteResponder(responder, requestMessage),
+                c => c.WithPrefetchCount(configuration.PrefetchCount));
         }
 
         public virtual IDisposable Respond<TRequest, TResponse>(Func<TRequest, Task<TResponse>> responder, Action<IResponderConfiguration> configure) where TRequest : class where TResponse : class
