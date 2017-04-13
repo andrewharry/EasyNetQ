@@ -1,11 +1,31 @@
 ﻿using System;
 using System.Reflection;
 
-// EasyNetQ version number: <major>.<minor>.<non-breaking-feature>.<build>
-[assembly: AssemblyVersion("0.59.0.0")]
+// EasyNetQ follows the Semantic Versioning 2.0.0 (http://semver.org/)
+// Given a version number MAJOR.MINOR.PATCH, increment the:
+// MAJOR version when you make incompatible API changes,
+// MINOR version when you add functionality in a backwards-compatible manner, and
+// PATCH version when you make backwards-compatible bug fixes.
+
+[assembly: AssemblyVersion("1.0.3.0")]
 [assembly: CLSCompliant(false)]
 
-// Note: until version 1.0 expect breaking changes on 0.X versions.
+// 1.0.3.0 Bug Fix, defer execution of serviceCreator parameter in SimpleInjectorAdapter.Register
+// 1.0.2.0 Added start consuming events for failure and success
+// 1.0.1.0  First stable release
+// 0.63.6.0 Added support for multiple exchange (creating an exchange per implemented interface for a concreate type)
+// 0.63.5.0 Made some methods protected/virtual in HandlerRunner so we can override the behavior
+// 0.63.4.0 EasyNetQ.Scheduler stability fixes
+// 0.63.3.0 Allow injection of custom implementation of IPersistentConnection
+// 0.63.2.0 Make SimpleInjectorMessageDispatcher public so it can be used with AutoSubscriber
+// 0.63.1.0 Set upper bound of supported rabbitmq client version
+// 0.63.0.0 Make ConnectIntervalAttempt for PersistentConnection configurable on ConnectionConfiguration
+// 0.62.1.0 Bug Fix: QueueDeclare does not allow an empty dead letter exchange thus preventing directly publishing to a queue
+// 0.62.0.0 Completed support for topic based routing in future publish
+// 0.61.1.0 Added support for configuring RPC exchange (request and response) names via conventions
+// 0.61.0.0 Added support for EXTERNAL authentication mechanism
+// 0.60.1.0 Added SimpleInjector DI support
+// 0.60.0.0 Remove [Serializable] attribute from messages and exceptions
 // 0.59.0.0 Support of priority queues to IBus publish methods
 // 0.58.0.0 added IErrorMessageSerializer and 2 implementations (UTF8 and Base64) 
 // 0.57.2.0 Removed from the hosepipe library the useless dependency on easynetq management client

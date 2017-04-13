@@ -40,7 +40,8 @@ namespace EasyNetQ
             IProduceConsumeInterceptor produceConsumeInterceptor,
             IMessageSerializationStrategy messageSerializationStrategy,
             IConventions conventions,
-            AdvancedBusEventHandlers advancedBusEventHandlers)
+            AdvancedBusEventHandlers advancedBusEventHandlers,
+            IPersistentConnectionFactory persistentConnectionFactory)
         {
             Preconditions.CheckNotNull(connectionFactory, "connectionFactory");
             Preconditions.CheckNotNull(consumerFactory, "consumerFactory");
@@ -53,6 +54,7 @@ namespace EasyNetQ
             Preconditions.CheckNotNull(produceConsumeInterceptor, "produceConsumeInterceptor");
             Preconditions.CheckNotNull(conventions, "conventions");
             Preconditions.CheckNotNull(advancedBusEventHandlers, "advancedBusEventHandlers");
+            Preconditions.CheckNotNull(persistentConnectionFactory, "persistentConnectionFactory");
 
             this.consumerFactory = consumerFactory;
             this.logger = logger;
@@ -91,7 +93,7 @@ namespace EasyNetQ
                 MessageReturned += advancedBusEventHandlers.MessageReturned;
             }
 
-            connection = new PersistentConnection(connectionFactory, logger, eventBus);
+            connection = persistentConnectionFactory.CreateConnection();
             clientCommandDispatcher = clientCommandDispatcherFactory.GetClientCommandDispatcher(connection);
             connection.Initialize();
         }
@@ -380,7 +382,11 @@ namespace EasyNetQ
             {
                 arguments.Add("x-max-priority", maxPriority.Value);
             }
-            if (!string.IsNullOrEmpty(deadLetterExchange))
+            // Allow empty dead-letter-exchange as it represents the default rabbitmq exchange
+            // and thus is a valid value. To dead-letter a message directly to a queue, you
+            // would set dead-letter-exchange to empty and dead-letter-routing-key to name of the
+            // queue since every queue has a direct binding with default exchange.
+            if (deadLetterExchange != null)
             {
                 arguments.Add("x-dead-letter-exchange", deadLetterExchange);
             }
@@ -437,7 +443,11 @@ namespace EasyNetQ
             {
                 arguments.Add("x-max-priority", maxPriority.Value);
             }
-            if (!string.IsNullOrEmpty(deadLetterExchange))
+            // Allow empty dead-letter-exchange as it represents the default rabbitmq exchange
+            // and thus is a valid value. To dead-letter a message directly to a queue, you
+            // would set dead-letter-exchange to empty and dead-letter-routing-key to name of the
+            // queue since every queue has a direct binding with default exchange.
+            if (deadLetterExchange != null)
             {
                 arguments.Add("x-dead-letter-exchange", deadLetterExchange);
             }
