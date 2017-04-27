@@ -195,6 +195,9 @@ namespace EasyNetQ.Producer
                             exclusive: true,
                             autoDelete: true);
 
+                var exchange = DeclareRpcExchange(conventions.RpcResponseExchangeNamingConvention(typeof(TResponse)));
+                advancedBus.Bind(exchange, queue, queue.Name);
+
                 advancedBus.Consume<TResponse>(queue, (message, messageReceivedInfo) => Task.Factory.StartNew(() => {
                     ResponseAction responseAction;
                     if (responseActions.TryRemove(message.Properties.CorrelationId, out responseAction))
