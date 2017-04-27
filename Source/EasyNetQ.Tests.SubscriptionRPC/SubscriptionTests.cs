@@ -23,20 +23,20 @@ namespace EasyNetQ.Tests.SubscriptionRPC
 
             var bus = RabbitHutch.CreateBus("host=localhost;persistentMessages=false;prefetchcount=30;timeout=20", service => {
                 service.Register<ITypeNameSerializer, NameSerialiser>();
-                service.Register<IEasyNetQLogger>(_ => new EasyNetQ.Loggers.ConsoleLogger { Debug = false, Info = false, Error = true });
+                service.Register<IEasyNetQLogger>(_ => new EasyNetQ.Loggers.ConsoleLogger { Debug = true, Info = true, Error = true });
             });
 
             IDisposable token = null;
 
             try {
                 //Setup first subscriber
-                token = bus.RespondAsync(endpoint, Handler(1));
-                var task = bus.RequestAsync<TestResponse>(endpoint, new TestRequest { SenderId = 2 }, TimeSpan.FromSeconds(5), null);
+                token = bus.RespondAsync(endpoint, Handler(123));
+                var task = bus.RequestAsync<TestResponse>(endpoint, new TestRequest { SenderId = 2 }, TimeSpan.FromSeconds(200), null);
 
                 Task.WaitAll(task);
                 var result = task.Result;
                 Assert.IsNotNull(result);
-                Assert.AreEqual(1, result.SenderId);
+                Assert.AreEqual(123, result.SenderId);
             }
             finally {
                 bus.Dispose();
@@ -64,7 +64,7 @@ namespace EasyNetQ.Tests.SubscriptionRPC
                 //token.Add(bus.RespondAsync(endpoint, Handler(1), topic2));
                 token.Add(bus.RespondAsync(endpoint, Handler(1), Guid.NewGuid().ToString(), config => config.WithAutoDelete().WithTopic(topic2)));
                 token.Add(bus.RespondAsync(endpoint, Handler(2), Guid.NewGuid().ToString(), config => config.WithAutoDelete().WithTopic(topic1)));
-                var task = bus.RequestAsync<TestResponse>(endpoint, new TestRequest { SenderId = 3 }, TimeSpan.FromSeconds(3), topic1);
+                var task = bus.RequestAsync<TestResponse>(endpoint, new TestRequest { SenderId = 3 }, TimeSpan.FromSeconds(3000), topic1);
 
                 Task.WaitAll(task);
                 var result = task.Result;

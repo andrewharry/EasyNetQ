@@ -210,8 +210,7 @@ namespace EasyNetQ.Producer
         protected virtual string SubscribeToResponse<TRequest, TResponse>()
             where TResponse : class
         {
-            var responseType = typeof(TResponse);
-            var rpcKey = new RpcKey { Request = typeof(TRequest), Response = responseType };
+            var rpcKey = new RpcKey { Request = typeof(TRequest), Response = typeof(TResponse) };
             string queueName;
             if (responseQueues.TryGetValue(rpcKey, out queueName))
                 return queueName;
@@ -226,10 +225,6 @@ namespace EasyNetQ.Producer
                             durable: false,
                             exclusive: true,
                             autoDelete: true);
-
-                var exchange = DeclareRpcExchange(conventions.RpcResponseExchangeNamingConvention(responseType));
-
-                advancedBus.Bind(exchange, queue, queue.Name);
 
                 advancedBus.Consume<TResponse>(queue, (message, messageReceivedInfo) => Task.Factory.StartNew(() =>
                     {
