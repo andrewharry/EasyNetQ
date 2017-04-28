@@ -19,8 +19,42 @@ namespace EasyNetQ.Tests.SubscriptionRPC
     public class SubscriptionTests 
     {
         [TestMethod]
-        public async Task TestMethod1() {
+        public async Task FireAndForgetTest()
+        {
             var endpoint = "unit-test-queue-1";
+
+            var bus = RabbitHutch.CreateBus("host=localhost;persistentMessages=false;prefetchcount=30;timeout=20", service => {
+                service.Register<ITypeNameSerializer, NameSerialiser>();
+                service.Register<IEasyNetQLogger>(_ => new ConsoleLogger { Debug = true, Info = true, Error = true });
+            });
+
+            IDisposable token = null;
+            TestRequest result = null;
+            var request = new TestRequest { SenderId = 1 };
+
+            try
+            {
+                //Setup first subscriber
+                token = bus.Receive(endpoint, (TestRequest v) => { result = v; });
+
+                //Send message
+                await bus.SendAsync(endpoint, request);
+
+                await Task.Delay(TimeSpan.FromSeconds(1));
+
+                Assert.IsNotNull(result);
+                Assert.AreEqual(request.SenderId, result.SenderId);
+            }
+            finally
+            {
+                bus.Dispose();
+                token?.Dispose();
+            }
+        }
+
+        [TestMethod]
+        public async Task RpcTest() {
+            var endpoint = "unit-test-queue-2";
 
             var bus = RabbitHutch.CreateBus("host=localhost;persistentMessages=false;prefetchcount=30;timeout=20", service => {
                 service.Register<ITypeNameSerializer, NameSerialiser>();
@@ -44,8 +78,8 @@ namespace EasyNetQ.Tests.SubscriptionRPC
         }
 
         [TestMethod]
-        public async Task TestMethod2() {
-            var endpoint = "unit-test-queue-2";
+        public async Task RpcRouteKeyTest() {
+            var endpoint = "unit-test-queue-3";
             var topic1 = "topic.different";
             var topic2 = "topic.another";
 
